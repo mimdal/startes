@@ -1,0 +1,7 @@
+POST http://localhost:8080/spring-boot-rest/calculations/sum
+Content-Type: application/json
+
+{
+"numberOne" : "-10",
+"numberTwo": "2.2"
+}
