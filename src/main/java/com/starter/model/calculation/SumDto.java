@@ -10,7 +10,7 @@ public class SumDto {
         return a;
     }
 
-    public SumDto setA(int a) {
+    public SumDto setA(Integer a) {
         this.a = a;
         return this;
     }
@@ -19,7 +19,7 @@ public class SumDto {
         return b;
     }
 
-    public SumDto setB(int b) {
+    public SumDto setB(Integer b) {
         this.b = b;
         return this;
     }
