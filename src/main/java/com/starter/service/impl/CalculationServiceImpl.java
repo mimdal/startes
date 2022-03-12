@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 public class CalculationServiceImpl implements CalculationService {
 
     @Override
-    public int sum(SumDto sumDto) {
+    public Integer sum(SumDto sumDto) {
         return sumDto.getA() + sumDto.getB();
     }
 

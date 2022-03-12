@@ -4,6 +4,6 @@ import com.starter.model.calculation.SumDto;
 
 public interface CalculationService {
 
-    int sum(SumDto sumDto);
+    Integer sum(SumDto sumDto);
 
 }

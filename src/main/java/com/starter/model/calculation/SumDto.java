@@ -2,9 +2,9 @@ package com.starter.model.calculation;
 
 public class SumDto {
 
-    private int a;
+    private Integer a;
 
-    private int b;
+    private Integer b;
 
     public int getA() {
         return a;
