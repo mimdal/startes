@@ -1,4 +1,4 @@
-package com.starter.service;
+package com.starter.service.calculation.mapper;
 
 import com.starter.model.calculation.SumDto;
 import com.starter.model.calculation.entity.Sum;

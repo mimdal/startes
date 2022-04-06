@@ -1,10 +1,10 @@
-package com.starter.service.impl;
+package com.starter.service.calculation.impl;
 
 import com.starter.model.calculation.SumDto;
 import com.starter.model.calculation.dao.SumDao;
 import com.starter.model.calculation.entity.Sum;
-import com.starter.service.CalculationService;
-import com.starter.service.CalculationServiceMapper;
+import com.starter.service.calculation.CalculationService;
+import com.starter.service.calculation.mapper.CalculationServiceMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

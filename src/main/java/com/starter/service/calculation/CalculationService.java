@@ -1,4 +1,4 @@
-package com.starter.service;
+package com.starter.service.calculation;
 
 import com.starter.model.calculation.SumDto;
 
