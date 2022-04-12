@@ -1,4 +1,4 @@
-POST http://localhost:8080/spring-boot-rest/calculations/sum
+POST http://localhost:65014/spring-boot-rest/calculations/sum
 Content-Type: application/json
 
 {
