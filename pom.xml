@@ -19,6 +19,7 @@
 
 	<properties>
 		<java.version>11</java.version>
+		<docker.repo>company-internal-docker-registry-address</docker.repo>
 	</properties>
 
 	<dependencies>
@@ -33,6 +34,25 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<version>1.4.0</version>
+				<configuration>
+					<from>
+						<image>scratch</image>
+					</from>
+					<to>
+						<image>${docker.repo}/${project.artifactId}:${project.version}</image>
+					</to>
+					<container>
+						<labels>
+							<group>company-name</group>
+							<service>${project.artifactId}</service>
+						</labels>
+					</container>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
