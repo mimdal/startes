@@ -3,9 +3,9 @@ package com.starter.api.web.calculation.mapper;
 import com.starter.api.expose.request.SumRequest;
 import com.starter.api.expose.response.SumResponse;
 import com.starter.model.calculation.SumDto;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
-@Repository
+@Component
 public class CalculationResourceMapper {
 
     public SumDto toSumDto(SumRequest request) {

@@ -4,12 +4,12 @@ import com.starter.model.calculation.entity.relation.HeadMaster;
 import com.starter.model.calculation.entity.relation.School;
 import com.starter.model.calculation.entity.relation.Student;
 import com.starter.model.calculation.entity.relation.Teacher;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Random;
 
-@Repository
+@Component
 public class EntityRelationServiceMapper {
 
     private int getRandomDigit() {

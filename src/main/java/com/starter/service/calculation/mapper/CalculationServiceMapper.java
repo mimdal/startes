@@ -2,9 +2,9 @@ package com.starter.service.calculation.mapper;
 
 import com.starter.model.calculation.SumDto;
 import com.starter.model.calculation.entity.Sum;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
-@Repository
+@Component
 public class CalculationServiceMapper {
 
     public Sum toSum(SumDto sumDto, Integer result) {
