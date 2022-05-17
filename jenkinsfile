@@ -1,0 +1,96 @@
+pipeline {
+    stages {
+        stage("Config vars") {
+            steps {
+                container('maven') {
+                    script {
+                        switch (env.GIT_BRANCH) {
+                            case 'origin/staging':
+                                env.MAVEN_REPO = 'http://10.198.13.10:8081/repository/maven-snapshots'
+                                env.DOCKER_REPO = 'uat-dk.mydigipay.info'
+                                env.ACTIVE_PROFILES = 'staging,container'
+                                env.REPLICA_COUNT = '1'
+                                env.KUBE_NAMESPACE = 'digipay-staging'
+                                env.KUBE_CONTEXT = 'kubernetes-staging'
+                                break
+                            case "origin/master":
+                                env.MAVEN_REPO = 'http://10.198.13.10:8081/repository/maven-releases-prod'
+                                env.DOCKER_REPO = 'dk.mydigipay.info'
+                                env.ACTIVE_PROFILES = 'prod,container'
+                                env.REPLICA_COUNT = '3'
+                                env.KUBE_NAMESPACE = 'digipay-production'
+                                env.KUBE_CONTEXT = 'kubernetes-production'
+                                timeout = "5m"
+                                break
+                            default:
+                                println("Branch value error: " + "${env.GIT_BRANCH}")
+                        }
+                    }
+                    echo "Docker repoository :: ${env.DOCKER_REPO}"
+                    echo "Maven repoository :: ${env.MAVEN_REPO}"
+                    echo "Active profiles :: ${env.ACTIVE_PROFILES}"
+                    echo "Number of replicas :: ${env.REPLICA_COUNT}"
+                    echo "Kubernetes context :: ${env.KUBE_CONTEXT}"
+                    echo "Kubernetes namespace :: ${env.KUBE_NAMESPACE}"
+                }
+            }
+        }
+      stage('Clean') {
+        steps {
+            container('dind') {
+              configFileProvider([configFile(fileId: 'MAVEN_SETTINGS_XML', variable: 'MAVEN_SETTINGS')]) {
+                script {
+                    env.MAVEN_PROJECT_VERSION = sh(script: "mvn -s ${MAVEN_SETTINGS} -q -Dexec.executable=echo -Dexec.args=\'\${project.version}\' --non-recursive exec:exec", , returnStdout: true).trim()
+                }
+                sh """
+                    mvn -s ${MAVEN_SETTINGS} spring-javaformat:validate && mvn -s ${MAVEN_SETTINGS} clean
+                """
+              }
+          }
+        }
+      }
+      stage('Build Spec') {
+        steps {
+            container('dind') {
+                 configFileProvider([configFile(fileId: 'MAVEN_SETTINGS_XML', variable: 'MAVEN_SETTINGS')]) {
+                     sh """
+                      mvn -s ${MAVEN_SETTINGS} --projects :${project}-parent,:${project}-spec install deploy -DaltDeploymentRepository=nexus-releases::default::${MAVEN_REPO} -DskipTests=true
+                     """
+                }
+          }
+        }
+      }
+      stage('Test') {
+        steps {
+            container('dind') {
+              configFileProvider([configFile(fileId: 'MAVEN_SETTINGS_XML', variable: 'MAVEN_SETTINGS')]) {
+                sh """
+                   mvn -s ${MAVEN_SETTINGS} -DfailIfNoTests=false test -Dtest='*Test,*IT'
+                """
+              }
+          }
+        }
+      }
+      stage('Push Image') {
+        steps {
+            container('dind') {
+              configFileProvider([configFile(fileId: 'MAVEN_SETTINGS_XML', variable: 'MAVEN_SETTINGS')]) {
+                sh """
+                  mvn -s $MAVEN_SETTINGS -f ./${project}/pom.xml -X jib:build -Ddocker.repo=$DOCKER_REPO
+                """
+              }
+          }
+        }
+      }
+      stage('Deploy') {
+        steps {
+            container('deployer') {
+              sh """
+                  echo $MAVEN_PROJECT_VERSION
+                  helm upgrade --install -n app --set image.repository=${DOCKER_REPO}/${project},image.tag=\"${MAVEN_PROJECT_VERSION}\",service.targetPort=${port},replicaCount=${REPLICA_COUNT},labels.commitHash=${BUILD_NUMBER}${GIT_COMMIT} ${project} digipay/app-chart --wait --timeout ${timeout}
+              """
+          }
+        }
+      }
+    }
+  }

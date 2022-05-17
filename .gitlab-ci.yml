@@ -1,0 +1,192 @@
+stages:
+  - test
+  - sonarqube
+  - build
+  - deploy
+  - rollback
+  - notify
+  - notifyrb
+
+variables:
+    IMAGE_NAME: "reg.omidanalyzer.com/$CI_PROJECT_PATH:$CI_COMMIT_REF_NAME"
+    DEPLOYMENT_NAME: "api-backend-deployment"
+    CONTAINER_NAME: "api-backend"
+    BASE_NAMESPACE: "optimax"
+    RDBGPORT: 32006
+
+test:
+  stage: test
+  tags:
+    - mvn11
+  script:
+    - mvn clean compile test
+  artifacts:
+    when: always
+    paths:
+      - target/classes/
+      - target/generated-sources/
+      - target/test-results
+      - target/surefire-reports
+    expire_in: 1 day
+
+sonarqube:
+  stage: sonarqube
+  tags:
+    - maven
+  script:
+    - mvn verify sonar:sonar -Dsonar.host.url=http://192.168.230.21:9001
+  only:
+    - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+    - uat
+  allow_failure: true
+  when: manual
+  
+build:
+  stage: build
+  tags:
+    - mvn11
+  before_script:
+    - export date=`TZ=Asia/Tehran date` && echo $date
+  script:
+    - mvn -e -U -DskipTests package spring-boot:repackage
+    - docker login -u $CI_USER -p $CI_PASS reg.omidanalyzer.com
+    - if [ "$CI_COMMIT_REF_NAME" = "uat" ] || [ "$CI_COMMIT_REF_NAME" = "develop" ]; then IMAGE_NAME=$IMAGE_NAME-$CI_PIPELINE_ID; fi
+    - docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
+  only:
+    - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+    - develop
+    - uat
+
+deploy-prod:
+    stage: deploy
+    variables:
+      NAMESPACE: $BASE_NAMESPACE
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - echo "STAGE=deployment" > deploy.env
+        - envsubst < ci/deployment.yaml > ci/kuber_deploy_prod.yaml
+        - kubectl apply -f ci/kuber_deploy_prod.yaml
+        - kubectl rollout status deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+        - echo "STATUS=succeeded" >> deploy.env
+    only:
+        - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+    tags:
+      - k8s-market-runner
+    when: manual
+    artifacts:
+      reports:
+        dotenv: deploy.env 
+
+rollback-prod:
+    stage: rollback
+    variables:
+      NAMESPACE: $BASE_NAMESPACE
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - echo "STAGE=rollback" > rollback.env
+        - kubectl rollout undo deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+        - echo "STATUS=succeeded" >> rollback.env
+    only:
+        - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+    tags:
+      - k8s-market-runner
+    when: manual
+    artifacts:
+      reports:
+        dotenv: rollback.env
+
+notify-deploy-prod:
+  stage: notify
+  needs: 
+    - job: deploy-prod
+      artifacts: true
+  variables:
+    PROJECTNAME: $CI_PROJECT_PATH
+    TAG: $CI_COMMIT_REF_NAME
+    ENVIR: production
+    USER: $GITLAB_USER_LOGIN
+    CHANGE_LOG: "$CI_PROJECT_URL/-/tags/$CI_COMMIT_TAG"
+  image: reg.omidanalyzer.com/devops-group/runners/notifier:latest
+  only:
+      - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+  tags:
+    - k8s-market-runner
+  script:
+    - /slack-curl.sh
+    
+notify-rollback-prod:
+  stage: notifyrb
+  needs: 
+    - job: rollback-prod
+      artifacts: true
+  variables:
+    PROJECTNAME: $CI_PROJECT_PATH
+    TAG: $CI_COMMIT_REF_NAME
+    ENVIR: production
+    USER: $GITLAB_USER_LOGIN
+    CHANGE_LOG: "$CI_PROJECT_URL/-/tags/$CI_COMMIT_TAG"
+  image: reg.omidanalyzer.com/devops-group/runners/notifier:latest
+  only:
+      - /^v\d{1,6}\.\d{1,6}\.\d{1,6}$/
+  tags:
+    - k8s-market-runner
+  script:
+    - /slack-curl.sh 
+
+
+deploy-develop:
+    stage: deploy
+    variables:
+      NAMESPACE: $BASE_NAMESPACE-data-develop
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - export "IMAGE_NAME=$IMAGE_NAME-$CI_PIPELINE_ID"
+        - envsubst < ci/deployment.yaml > ci/kuber_deploy_prod.yaml
+        - kubectl apply -f ci/kuber_deploy_prod.yaml
+        - kubectl rollout status deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+    only:
+        - develop
+    tags:
+      - k8s-stg-runner
+
+rollback-develop:
+    stage: rollback
+    variables:
+      NAMESPACE: $BASE_NAMESPACE-data-develop
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - kubectl rollout undo deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+    only:
+        - develop
+    tags:
+      - k8s-stg-runner
+    when: manual
+
+deploy-uat:
+    stage: deploy
+    variables:
+      NAMESPACE: $BASE_NAMESPACE
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - export "IMAGE_NAME=$IMAGE_NAME-$CI_PIPELINE_ID"
+        - envsubst < ci/deployment.yaml > ci/kuber_deploy_prod.yaml
+        - kubectl apply -f ci/kuber_deploy_prod.yaml
+        - kubectl rollout status deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+    only:
+        - uat
+    tags:
+      - k8s-UAT-runner
+
+rollback-uat:
+    stage: rollback
+    variables:
+      NAMESPACE: $BASE_NAMESPACE
+    image: reg.omidanalyzer.com/devops-group/runners/kubectl:latest
+    script:
+        - kubectl rollout undo deployment.apps/$DEPLOYMENT_NAME -n $NAMESPACE
+    only:
+        - uat
+    tags:
+      - k8s-UAT-runner
+    when: manual
